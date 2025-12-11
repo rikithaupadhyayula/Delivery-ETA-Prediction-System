@@ -335,6 +335,28 @@ The Streamlit dashboard provides three main pages:
 
 ## 🔄 Quick Start Commands
 
+### Using Run Scripts (Recommended)
+
+**Windows:**
+```cmd
+run.bat setup      # First time: create venv and install dependencies
+run.bat train      # Train the ML model
+run.bat api        # Start FastAPI server
+run.bat dashboard  # Start Streamlit dashboard
+run.bat all        # Train + start both servers
+```
+
+**Linux/macOS:**
+```bash
+bash run.sh setup      # First time: create venv and install dependencies
+bash run.sh train      # Train the ML model
+bash run.sh api        # Start FastAPI server
+bash run.sh dashboard  # Start Streamlit dashboard
+bash run.sh all        # Train + start both servers
+```
+
+### Manual Commands
+
 ```bash
 # Install dependencies
 pip install -r requirements.txt
