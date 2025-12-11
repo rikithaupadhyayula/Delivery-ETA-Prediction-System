@@ -382,7 +382,3 @@ This project is for educational and research purposes. The LaDe dataset is provi
 - **Scikit-learn**, **XGBoost**, **FastAPI**, and **Streamlit** communities
 
 ---
-
-<div align="center">
-  <b>Built with ❤️ for Last-Mile Delivery Optimization</b>
-</div>

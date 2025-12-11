@@ -362,7 +362,8 @@ def run_training_pipeline(
     test_size: float = 0.2,
     random_state: int = 42,
     save_model_flag: bool = True,
-    model_dir: str = "models"
+    model_dir: str = "models",
+    sample_size: Optional[int] = 50000
 ) -> Dict:
     """
     Run the complete training pipeline.
@@ -381,6 +382,7 @@ def run_training_pipeline(
         random_state: Random seed for reproducibility.
         save_model_flag: Whether to save the best model.
         model_dir: Directory to save models.
+        sample_size: Maximum samples to use for training (for faster runs). Default 50000.
     
     Returns:
         Dict: Training results and best model information.
@@ -399,8 +401,12 @@ def run_training_pipeline(
     if data_path and os.path.exists(data_path):
         df = pd.read_parquet(data_path)
         logger.info(f"Loaded data from: {data_path}")
+        # Sample if needed
+        if sample_size and len(df) > sample_size:
+            df = df.sample(n=sample_size, random_state=random_state).reset_index(drop=True)
+            logger.info(f"Sampled {sample_size} records for training")
     else:
-        df = load_and_preprocess(city="shanghai")
+        df = load_and_preprocess(city="shanghai", sample_size=sample_size)
     
     logger.info(f"Data loaded: {len(df)} records")
     

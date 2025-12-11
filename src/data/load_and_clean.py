@@ -26,7 +26,8 @@ logger = logging.getLogger(__name__)
 
 def load_lade_dataset(
     city: str = "shanghai",
-    cache_dir: Optional[str] = None
+    cache_dir: Optional[str] = None,
+    sample_size: Optional[int] = None
 ) -> pd.DataFrame:
     """
     Load the LaDe-D (delivery) dataset from HuggingFace.
@@ -38,37 +39,52 @@ def load_lade_dataset(
         city: City to load data for. Options: 'shanghai', 'hangzhou', 
               'chongqing', 'jilin', 'yantai'. Default is 'shanghai'.
         cache_dir: Optional directory to cache the downloaded data.
+        sample_size: Optional limit on number of records to load (for faster testing).
     
     Returns:
         pd.DataFrame: Raw delivery data from the specified city.
     """
     logger.info(f"Loading LaDe-D dataset for city: {city}")
     
+    # Map city names to dataset split names
+    city_to_split = {
+        'shanghai': 'delivery_sh',
+        'hangzhou': 'delivery_hz',
+        'chongqing': 'delivery_cq',
+        'jilin': 'delivery_jl',
+        'yantai': 'delivery_yt'
+    }
+    
     try:
         # Load the LaDe-D (delivery) dataset
         dataset = load_dataset(
             "Cainiao-AI/LaDe-D",
-            cache_dir=cache_dir,
-            trust_remote_code=True
+            cache_dir=cache_dir
         )
         
-        # The dataset contains data split by city
-        # Get the training split
-        df = dataset['train'].to_pandas()
+        # Get the split name for the requested city
+        split_name = city_to_split.get(city.lower(), f'delivery_{city.lower()[:2]}')
         
-        # Filter by city if specified
-        if 'city' in df.columns and city:
-            city_mapping = {
-                'shanghai': 'sh',
-                'hangzhou': 'hz',
-                'chongqing': 'cq',
-                'jilin': 'jl',
-                'yantai': 'yt'
-            }
-            city_code = city_mapping.get(city.lower(), city)
-            df = df[df['city'] == city_code].copy()
+        # Check if split exists
+        if split_name not in dataset:
+            available_splits = list(dataset.keys())
+            logger.warning(f"Split '{split_name}' not found. Available: {available_splits}")
+            # Use first available split
+            split_name = available_splits[0]
+            logger.info(f"Using split: {split_name}")
         
-        logger.info(f"Loaded {len(df)} records from {city}")
+        # Convert to pandas
+        df = dataset[split_name].to_pandas()
+        
+        # Log available columns  
+        logger.info(f"Available columns: {df.columns.tolist()}")
+        
+        # Limit sample size if specified
+        if sample_size and len(df) > sample_size:
+            df = df.sample(n=sample_size, random_state=42).reset_index(drop=True)
+            logger.info(f"Sampled {sample_size} records from {len(dataset[split_name])} total")
+        
+        logger.info(f"Loaded {len(df)} records from {city} (split: {split_name})")
         return df
         
     except Exception as e:
@@ -80,7 +96,7 @@ def parse_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     """
     Parse and convert timestamp columns to datetime objects.
     
-    The LaDe dataset uses Unix timestamps or string formats for time columns.
+    The LaDe dataset uses format like '06-04 11:05:00' (MM-DD HH:MM:SS without year).
     This function standardizes them to pandas datetime.
     
     Args:
@@ -102,12 +118,20 @@ def parse_timestamps(df: pd.DataFrame) -> pd.DataFrame:
                 if df[col].dtype == 'datetime64[ns]':
                     continue
                 
-                # Try to parse as Unix timestamp (seconds)
+                # Try to parse as Unix timestamp (seconds) - fastest method
                 if df[col].dtype in ['int64', 'float64']:
                     df[col] = pd.to_datetime(df[col], unit='s', errors='coerce')
                 else:
-                    # Try to parse as string datetime
-                    df[col] = pd.to_datetime(df[col], errors='coerce')
+                    # LaDe format is like '06-04 11:05:00' (MM-DD HH:MM:SS without year)
+                    # Add a year prefix to make it parseable
+                    sample = str(df[col].dropna().iloc[0]) if len(df[col].dropna()) > 0 else None
+                    if sample and len(sample) <= 14:  # Format: MM-DD HH:MM:SS
+                        # Add year 2023 as prefix
+                        df[col] = '2023-' + df[col].astype(str)
+                        df[col] = pd.to_datetime(df[col], format='%Y-%m-%d %H:%M:%S', errors='coerce')
+                    else:
+                        # Try standard formats
+                        df[col] = pd.to_datetime(df[col], errors='coerce', format='mixed')
                     
                 logger.info(f"Parsed column: {col}")
             except Exception as e:
@@ -224,7 +248,8 @@ def compute_target_variable(df: pd.DataFrame) -> pd.DataFrame:
 def load_and_preprocess(
     city: str = "shanghai",
     cache_dir: Optional[str] = None,
-    save_path: Optional[str] = None
+    save_path: Optional[str] = None,
+    sample_size: Optional[int] = None
 ) -> pd.DataFrame:
     """
     Main function to load, clean, and preprocess the LaDe dataset.
@@ -240,6 +265,7 @@ def load_and_preprocess(
         city: City to load data for. Default is 'shanghai'.
         cache_dir: Optional directory to cache downloaded data.
         save_path: Optional path to save the processed data.
+        sample_size: Optional limit on records (for faster testing).
     
     Returns:
         pd.DataFrame: Preprocessed DataFrame ready for feature engineering.
@@ -249,7 +275,7 @@ def load_and_preprocess(
     logger.info("=" * 50)
     
     # Step 1: Load data
-    df = load_lade_dataset(city=city, cache_dir=cache_dir)
+    df = load_lade_dataset(city=city, cache_dir=cache_dir, sample_size=sample_size)
     
     # Step 2: Parse timestamps
     df = parse_timestamps(df)

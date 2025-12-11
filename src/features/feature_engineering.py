@@ -326,15 +326,12 @@ def add_courier_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def add_event_features(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Add event-based features (simulated for this dataset).
-    
-    Since the LaDe dataset may not have explicit event logs,
-    we simulate/derive event-like features from available data.
+    Add event-based features (derived from available features without target leakage).
     
     Features added:
-    - event_count: Estimated number of route events
-    - pickup_delay_hours: Estimated delay at pickup
-    - delivery_complexity: Complexity score based on distance and time
+    - event_count: Estimated number of route events based on distance
+    - pickup_delay_hours: Estimated delay based on hour of day
+    - delivery_complexity: Complexity score based on distance and temporal features
     
     Args:
         df: DataFrame with delivery information.
@@ -345,32 +342,28 @@ def add_event_features(df: pd.DataFrame) -> pd.DataFrame:
     logger.info("Adding event-based features...")
     df = df.copy()
     
-    # Simulate event count based on distance and time
-    # More distance/time = more likely route events
+    # Estimate event count based on distance only (no target leakage)
+    # More distance = more likely route events
     df['event_count'] = np.clip(
-        (df['haversine_distance_km'] / 2).astype(int) + 
-        (df['eta_hours'] * 2).astype(int),
+        (df['haversine_distance_km'] / 1.5).astype(int) + 1,
         1, 20
     )
     
-    # Estimate pickup delay (variance from expected based on time of day)
-    # This is a synthetic feature for demonstration
-    hourly_avg = df.groupby('hour_of_day')['eta_hours'].transform('mean')
-    df['pickup_delay_hours'] = np.clip(
-        df['eta_hours'] - hourly_avg,
-        0, 2
-    )
+    # Estimate pickup delay based on hour of day (busy hours = more delay)
+    # Peak hours (11-13, 17-19) have higher delays
+    peak_hours = df['hour_of_day'].isin([11, 12, 13, 17, 18, 19])
+    df['pickup_delay_hours'] = np.where(peak_hours, 0.3, 0.1)
     
-    # Delivery complexity score (0-1)
-    # Based on distance, time, and weekend factors
+    # Delivery complexity score (0-1) based on distance and temporal features
+    # NO target variable used here
     distance_norm = (df['haversine_distance_km'] - df['haversine_distance_km'].min()) / \
                     (df['haversine_distance_km'].max() - df['haversine_distance_km'].min() + 1e-6)
-    time_norm = (df['eta_hours'] - df['eta_hours'].min()) / \
-                (df['eta_hours'].max() - df['eta_hours'].min() + 1e-6)
     
-    df['delivery_complexity'] = (distance_norm * 0.5 + time_norm * 0.3 + 
-                                  df['is_weekend'] * 0.1 + 
-                                  df['is_rush_hour'] * 0.1)
+    df['delivery_complexity'] = (
+        distance_norm * 0.6 + 
+        df['is_weekend'] * 0.2 + 
+        df['is_rush_hour'] * 0.2
+    )
     
     logger.info(f"Event features added. Mean event count: {df['event_count'].mean():.1f}")
     
