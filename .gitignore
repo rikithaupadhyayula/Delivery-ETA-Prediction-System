@@ -39,8 +39,8 @@ ENV/
 *.parquet
 !dataset/.gitkeep
 
-# Model files (large files)
-*.pkl
+# Model files (large files - keeping best_model.pkl for deployment)
+# *.pkl  # Commented out to include trained model in repo
 *.joblib
 !models/.gitkeep
 
