@@ -54,3 +54,6 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
+
+# Interview prep (personal notes - not committed)
+INTERVIEW_PREP.md

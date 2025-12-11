@@ -149,14 +149,16 @@ Expected output:
 TRAINING SUMMARY
 ============================================================
 Best Model: xgboost
-Test MAE: 0.XXXX hours
-Test RMSE: 0.XXXX hours
-Test R²: 0.XXXX
+Test MAE: 0.8476 hours (~51 minutes)
+Test RMSE: 1.4021 hours (~84 minutes)
+Test R²: 0.4464
 
 Top 5 Important Features:
-  1. haversine_distance_km: 0.XXXX
-  2. hour_of_day: 0.XXXX
-  ...
+  1. courier_avg_eta: 0.2653
+  2. event_count: 0.1160
+  3. hour_of_day: 0.1051
+  4. haversine_distance_km: 0.0607
+  5. courier_avg_speed: 0.0585
 ```
 
 ### 2. Run the FastAPI Server
@@ -223,24 +225,26 @@ Access the dashboard at http://localhost:8501
 
 ## 📈 Model Performance
 
-### Model Comparison
+### Model Comparison (50,000 samples)
 
 | Model | MAE (hours) | RMSE (hours) | R² Score | Training Time |
 |-------|-------------|--------------|----------|---------------|
-| Linear Regression | ~0.XX | ~0.XX | ~0.XX | ~Xs |
-| Ridge Regression | ~0.XX | ~0.XX | ~0.XX | ~Xs |
-| Random Forest | ~0.XX | ~0.XX | ~0.XX | ~Xs |
-| **XGBoost** ⭐ | ~0.XX | ~0.XX | ~0.XX | ~Xs |
-
-*Note: Actual values depend on the training run.*
+| Linear Regression | 0.97 | 1.59 | 0.29 | 0.02s |
+| Ridge Regression | 0.97 | 1.59 | 0.29 | 0.01s |
+| Random Forest | 0.86 | 1.44 | 0.42 | 1.13s |
+| **XGBoost** ⭐ | **0.85** | **1.40** | **0.45** | 0.62s |
 
 ### Best Model: XGBoost
 
+- **MAE**: 0.85 hours (~51 minutes average error)
+- **RMSE**: 1.40 hours (~84 minutes)
+- **R²**: 0.45 (explains 45% of variance)
+
 XGBoost is selected as the primary model due to:
-- Best balance of accuracy and training speed
+- Best accuracy metrics (lowest MAE/RMSE, highest R²)
+- Fast training time (~0.6 seconds)
 - Robust handling of mixed feature types
-- Built-in feature importance
-- Excellent generalization
+- Built-in feature importance for interpretability
 
 ## 🌐 API Documentation
 
