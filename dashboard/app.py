@@ -22,6 +22,9 @@ from datetime import datetime, timedelta
 import requests
 import json
 
+# API URL configuration - set this in Streamlit Cloud secrets for production
+API_URL = os.environ.get("API_URL", "http://localhost:8000")
+
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -177,7 +180,33 @@ def make_prediction(pickup_lat, pickup_lng, drop_lat, drop_lng,
             'model_name': model_package['model_name']
         }
     else:
-        # Fallback: distance-based estimation
+        # Try calling the deployed API
+        try:
+            response = requests.post(
+                f"{API_URL}/predict",
+                json={
+                    "pickup_time": pickup_time.isoformat(),
+                    "pickup_lat": pickup_lat,
+                    "pickup_lng": pickup_lng,
+                    "drop_lat": drop_lat,
+                    "drop_lng": drop_lng,
+                    "courier_id": "dashboard_user",
+                    "event_count": event_count
+                },
+                timeout=10
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'prediction': data.get('predicted_eta_hours', 1.0),
+                    'lower': data.get('lower_bound_hours', 0.5),
+                    'upper': data.get('upper_bound_hours', 1.5),
+                    'model_name': f"API ({data.get('model_used', 'xgboost')})"
+                }
+        except Exception as e:
+            st.warning(f"API call failed: {e}")
+        
+        # Final fallback: distance-based estimation
         distance = haversine_distance(pickup_lat, pickup_lng, drop_lat, drop_lng) if MODULES_AVAILABLE else 5.0
         prediction = distance / 15.0 + 0.25
         
@@ -185,7 +214,7 @@ def make_prediction(pickup_lat, pickup_lng, drop_lat, drop_lng,
             'prediction': prediction,
             'lower': max(0, prediction - 0.5),
             'upper': prediction + 0.5,
-            'model_name': 'Distance Estimation (Model not loaded)'
+            'model_name': 'Distance Estimation (Fallback)'
         }
 
 
